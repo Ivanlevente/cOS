@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            user-select: none;
+        }
+
+        #desktop {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 48px);
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23ffffff08" width="100" height="100"/></svg>');
+        }
+
+        .desktop-icon {
+            position: absolute;
+            width: 80px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .desktop-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .desktop-icon .icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 8px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .desktop-icon .label {
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .window {
+            position: absolute;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            min-width: 400px;
+            min-height: 300px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .window.active {
+            display: flex;
+            z-index: 1000;
+        }
+
+        .window.maximized {
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: calc(100vh - 48px) !important;
+            border-radius: 0;
+        }
+
+        .title-bar {
+            background: linear-gradient(180deg, #f5f5f5 0%, #e5e5e5 100%);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: move;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .window-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .window-control {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+
+        .window-control:hover {
+            filter: brightness(0.85);
+        }
+
+        .window-control.close {
+            background: #ff5f57;
+        }
+
+        .window-control.minimize {
+            background: #ffbd2e;
+        }
+
+        .window-control.maximize {
+            background: #28ca42;
+        }
+
+        .window-content {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            background: white;
+        }
+
+        .taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            z-index: 10000;
+        }
+
+        .start-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s;
+        }
+
+        .start-button:hover {
+            transform: scale(1.05);
+        }
+
+        .taskbar-apps {
+            display: flex;
+            gap: 4px;
+            margin-left: 12px;
+            flex: 1;
+        }
+
+        .taskbar-app {
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 13px;
+        }
+
+        .taskbar-app:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .taskbar-app.active {
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .system-tray {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-left: auto;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .start-menu {
+            position: fixed;
+            bottom: 60px;
+            left: 12px;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            display: none;
+            z-index: 9999;
+        }
+
+        .start-menu.active {
+            display: block;
+            animation: slideUp 0.2s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .start-menu-apps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .start-menu-app {
+            padding: 16px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .start-menu-app:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .start-menu-app .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .start-menu-app .label {
+            font-size: 12px;
+            color: #333;
+        }
+
+        .calculator {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .calc-display {
+            grid-column: 1 / -1;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            text-align: right;
+            font-size: 32px;
+            font-weight: 300;
+            margin-bottom: 8px;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .calc-button {
+            padding: 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .calc-button:hover {
+            background: #e0e0e0;
+        }
+
+        .calc-button:active {
+            transform: scale(0.95);
+        }
+
+        .calc-button.operator {
+            background: #667eea;
+            color: white;
+        }
+
+        .calc-button.operator:hover {
+            background: #5568d3;
+        }
+
+        .calc-button.equals {
+            background: #28ca42;
+            color: white;
+        }
+
+        .calc-button.equals:hover {
+            background: #22a336;
+        }
+
+        .notepad-toolbar {
+            padding: 8px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+        }
+
+        .notepad-button {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .notepad-button:hover {
+            background: #f0f0f0;
+        }
+
+        .notepad-textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+
+        .file-manager-toolbar {
+            padding: 8px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-item {
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .file-item:hover {
+            background: #f5f5f5;
+        }
+
+        .file-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .browser-toolbar {
+            padding: 8px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .browser-button {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .browser-url {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .browser-content {
+            padding: 20px;
+            height: 100%;
+            overflow: auto;
+        }
+
+        .settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .settings-item {
+            padding: 16px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle {
+            width: 48px;
+            height: 24px;
+            background: #ccc;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle.active {
+            background: #28ca42;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s;
+        }
+
+        .toggle.active::after {
+            left: 26px;
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 16px;
+            height: 100%;
+            overflow: auto;
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+        }
+
+        .terminal-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .terminal-prompt {
+            color: #00ff00;
+        }
+
+        .terminal-command {
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            flex: 1;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="desktop">
+        <!-- Desktop Icons -->
+        <div class="desktop-icon" style="top: 20px; left: 20px;" data-app="files">
+            <div class="icon">📁</div>
+            <div class="label">Dateien</div>
+        </div>
+        <div class="desktop-icon" style="top: 120px; left: 20px;" data-app="browser">
+            <div class="icon">🌐</div>
+            <div class="label">Browser</div>
+        </div>
+        <div class="desktop-icon" style="top: 220px; left: 20px;" data-app="notepad">
+            <div class="icon">📝</div>
+            <div class="label">Editor</div>
+        </div>
+        <div class="desktop-icon" style="top: 320px; left: 20px;" data-app="settings">
+            <div class="icon">⚙️</div>
+            <div class="label">Einstellungen</div>
+        </div>
+    </div>
+
+    <!-- Windows -->
+    <!-- Calculator Window -->
+    <div class="window" id="calculator-window" style="left: 100px; top: 100px; width: 320px; height: 480px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>🔢</span>
+                <span>Rechner</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 12px;">
+            <div class="calculator">
+                <div class="calc-display" id="calc-display">0</div>
+                <button class="calc-button" onclick="calcClear()">C</button>
+                <button class="calc-button" onclick="calcAppend('(')">(</button>
+                <button class="calc-button" onclick="calcAppend(')')">)</button>
+                <button class="calc-button operator" onclick="calcAppend('/')">÷</button>
+                <button class="calc-button" onclick="calcAppend('7')">7</button>
+                <button class="calc-button" onclick="calcAppend('8')">8</button>
+                <button class="calc-button" onclick="calcAppend('9')">9</button>
+                <button class="calc-button operator" onclick="calcAppend('*')">×</button>
+                <button class="calc-button" onclick="calcAppend('4')">4</button>
+                <button class="calc-button" onclick="calcAppend('5')">5</button>
+                <button class="calc-button" onclick="calcAppend('6')">6</button>
+                <button class="calc-button operator" onclick="calcAppend('-')">−</button>
+                <button class="calc-button" onclick="calcAppend('1')">1</button>
+                <button class="calc-button" onclick="calcAppend('2')">2</button>
+                <button class="calc-button" onclick="calcAppend('3')">3</button>
+                <button class="calc-button operator" onclick="calcAppend('+')">+</button>
+                <button class="calc-button" onclick="calcAppend('0')" style="grid-column: 1 / 3;">0</button>
+                <button class="calc-button" onclick="calcAppend('.')">.</button>
+                <button class="calc-button equals" onclick="calcEquals()">=</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notepad Window -->
+    <div class="window" id="notepad-window" style="left: 150px; top: 80px; width: 600px; height: 500px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>📝</span>
+                <span>Editor</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="notepad-toolbar">
+            <button class="notepad-button" onclick="notepadNew()">Neu</button>
+            <button class="notepad-button" onclick="notepadSave()">Speichern</button>
+            <button class="notepad-button" onclick="notepadClear()">Löschen</button>
+        </div>
+        <div class="window-content" style="padding: 0;">
+            <textarea class="notepad-textarea" id="notepad-text" placeholder="Beginne zu schreiben..."></textarea>
+        </div>
+    </div>
+
+    <!-- File Manager Window -->
+    <div class="window" id="files-window" style="left: 200px; top: 100px; width: 700px; height: 500px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>📁</span>
+                <span>Datei-Explorer</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="file-manager-toolbar">
+            <button class="notepad-button">← Zurück</button>
+            <button class="notepad-button">Vorwärts →</button>
+            <input type="text" class="browser-url" value="Dieser PC" readonly style="border-radius: 4px;">
+        </div>
+        <div class="window-content">
+            <div class="file-list">
+                <div class="file-item">
+                    <div class="file-icon">📁</div>
+                    <div>
+                        <div style="font-weight: 600;">Dokumente</div>
+                        <div style="font-size: 12px; color: #666;">15 Dateien</div>
+                    </div>
+                </div>
+                <div class="file-item">
+                    <div class="file-icon">📁</div>
+                    <div>
+                        <div style="font-weight: 600;">Bilder</div>
+                        <div style="font-size: 12px; color: #666;">42 Dateien</div>
+                    </div>
+                </div>
+                <div class="file-item">
+                    <div class="file-icon">📁</div>
+                    <div>
+                        <div style="font-weight: 600;">Downloads</div>
+                        <div style="font-size: 12px; color: #666;">8 Dateien</div>
+                    </div>
+                </div>
+                <div class="file-item">
+                    <div class="file-icon">📄</div>
+                    <div>
+                        <div style="font-weight: 600;">Bericht.pdf</div>
+                        <div style="font-size: 12px; color: #666;">2.4 MB</div>
+                    </div>
+                </div>
+                <div class="file-item">
+                    <div class="file-icon">🖼️</div>
+                    <div>
+                        <div style="font-weight: 600;">Urlaub2024.jpg</div>
+                        <div style="font-size: 12px; color: #666;">5.1 MB</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Browser Window -->
+    <div class="window" id="browser-window" style="left: 120px; top: 60px; width: 800px; height: 600px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>🌐</span>
+                <span>Browser</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="browser-toolbar">
+            <button class="browser-button">←</button>
+            <button class="browser-button">→</button>
+            <button class="browser-button">⟳</button>
+            <input type="text" class="browser-url" value="cloudos://start" id="browser-url">
+            <button class="browser-button" onclick="browserGo()">Go</button>
+        </div>
+        <div class="window-content" id="browser-content">
+            <h1>Willkommen zu CloudOS Browser</h1>
+            <p>Ein modernes Webbrowser-Erlebnis direkt in deinem Betriebssystem.</p>
+            <h3 style="margin-top: 24px;">Beliebte Seiten:</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px;">
+                <div style="padding: 20px; background: #f5f5f5; border-radius: 8px; text-align: center; cursor: pointer;">
+                    <div style="font-size: 32px;">🔍</div>
+                    <div style="margin-top: 8px;">Suche</div>
+                </div>
+                <div style="padding: 20px; background: #f5f5f5; border-radius: 8px; text-align: center; cursor: pointer;">
+                    <div style="font-size: 32px;">📧</div>
+                    <div style="margin-top: 8px;">E-Mail</div>
+                </div>
+                <div style="padding: 20px; background: #f5f5f5; border-radius: 8px; text-align: center; cursor: pointer;">
+                    <div style="font-size: 32px;">📰</div>
+                    <div style="margin-top: 8px;">Nachrichten</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Window -->
+    <div class="window" id="settings-window" style="left: 180px; top: 120px; width: 600px; height: 500px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>⚙️</span>
+                <span>Einstellungen</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="window-content">
+            <h2>System-Einstellungen</h2>
+            <div class="settings-list" style="margin-top: 24px;">
+                <div class="settings-item">
+                    <div>
+                        <div style="font-weight: 600;">Dunkler Modus</div>
+                        <div style="font-size: 12px; color: #666;">Dunkles Farbschema aktivieren</div>
+                    </div>
+                    <div class="toggle" onclick="this.classList.toggle('active')"></div>
+                </div>
+                <div class="settings-item">
+                    <div>
+                        <div style="font-weight: 600;">Benachrichtigungen</div>
+                        <div style="font-size: 12px; color: #666;">System-Benachrichtigungen anzeigen</div>
+                    </div>
+                    <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+                </div>
+                <div class="settings-item">
+                    <div>
+                        <div style="font-weight: 600;">Animationen</div>
+                        <div style="font-size: 12px; color: #666;">Fenster-Animationen aktivieren</div>
+                    </div>
+                    <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+                </div>
+                <div class="settings-item">
+                    <div>
+                        <div style="font-weight: 600;">Autostart</div>
+                        <div style="font-size: 12px; color: #666;">Automatisch beim Start öffnen</div>
+                    </div>
+                    <div class="toggle" onclick="this.classList.toggle('active')"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Window -->
+    <div class="window" id="terminal-window" style="left: 220px; top: 140px; width: 700px; height: 400px;">
+        <div class="title-bar">
+            <div class="window-title">
+                <span>💻</span>
+                <span>Terminal</span>
+            </div>
+            <div class="window-controls">
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+                <div class="window-control close"></div>
+            </div>
+        </div>
+        <div class="window-content" style="padding: 0;">
+            <div class="terminal" id="terminal">
+                <div class="terminal-line">CloudOS Terminal v1.0</div>
+                <div class="terminal-line">Gib 'help' ein für verfügbare Befehle</div>
+                <div class="terminal-line" style="margin-bottom: 12px;">─────────────────────────────────</div>
+                <div id="terminal-output"></div>
+                <div class="terminal-input">
+                    <span class="terminal-prompt">user@cloudos:~$</span>
+                    <input type="text" class="terminal-command" id="terminal-input" autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taskbar -->
+    <div class="taskbar">
+        <button class="start-button" id="start-button">
+            <span>☰</span>
+            <span>Start</span>
+        </button>
+        <div class="taskbar-apps" id="taskbar-apps"></div>
+        <div class="system-tray">
+            <span>🔊</span>
+            <span>📶</span>
+            <span id="clock">00:00</span>
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div class="start-menu" id="start-menu">
+        <h3>CloudOS</h3>
+        <div class="start-menu-apps">
+            <div class="start-menu-app" data-app="calculator">
+                <div class="icon">🔢</div>
+                <div class="label">Rechner</div>
+            </div>
+            <div class="start-menu-app" data-app="notepad">
+                <div class="icon">📝</div>
+                <div class="label">Editor</div>
+            </div>
+            <div class="start-menu-app" data-app="files">
+                <div class="icon">📁</div>
+                <div class="label">Dateien</div>
+            </div>
+            <div class="start-menu-app" data-app="browser">
+                <div class="icon">🌐</div>
+                <div class="label">Browser</div>
+            </div>
+            <div class="start-menu-app" data-app="settings">
+                <div class="icon">⚙️</div>
+                <div class="label">Einstellungen</div>
+            </div>
+            <div class="start-menu-app" data-app="terminal">
+                <div class="icon">💻</div>
+                <div class="label">Terminal</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Window Management
+        let activeWindow = null;
+        let zIndexCounter = 1000;
+        let draggedWindow = null;
+        let dragOffset = { x: 0, y: 0 };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Desktop icons
+            document.querySelectorAll('.desktop-icon').forEach(icon => {
+                icon.addEventListener('dblclick', () => {
+                    openApp(icon.dataset.app);
+                });
+            });
+
+            // Start menu apps
+            document.querySelectorAll('.start-menu-app').forEach(app => {
+                app.addEventListener('click', () => {
+                    openApp(app.dataset.app);
+                    document.getElementById('start-menu').classList.remove('active');
+                });
+            });
+
+            // Start button
+            document.getElementById('start-button').addEventListener('click', () => {
+                document.getElementById('start-menu').classList.toggle('active');
+            });
+
+            // Close start menu when clicking outside
+            document.addEventListener('click', (e) => {
+                const startMenu = document.getElementById('start-menu');
+                const startButton = document.getElementById('start-button');
+                if (!startMenu.contains(e.target) && !startButton.contains(e.target)) {
+                    startMenu.classList.remove('active');
+                }
+            });
+
+            // Window controls
+            document.querySelectorAll('.window').forEach(window => {
+                setupWindowControls(window);
+            });
+
+            // Terminal input
+            const terminalInput = document.getElementById('terminal-input');
+            if (terminalInput) {
+                terminalInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        executeTerminalCommand(terminalInput.value);
+                        terminalInput.value = '';
+                    }
+                });
+            }
+        }
+
+        function setupWindowControls(window) {
+            const titleBar = window.querySelector('.title-bar');
+            const closeBtn = window.querySelector('.window-control.close');
+            const minimizeBtn = window.querySelector('.window-control.minimize');
+            const maximizeBtn = window.querySelector('.window-control.maximize');
+
+            // Dragging
+            titleBar.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('window-control')) return;
+                draggedWindow = window;
+                dragOffset.x = e.clientX - window.offsetLeft;
+                dragOffset.y = e.clientY - window.offsetTop;
+                bringToFront(window);
+            });
+
+            // Close
+            closeBtn.addEventListener('click', () => {
+                window.classList.remove('active');
+                updateTaskbar();
+            });
+
+            // Minimize
+            minimizeBtn.addEventListener('click', () => {
+                window.classList.remove('active');
+            });
+
+            // Maximize
+            maximizeBtn.addEventListener('click', () => {
+                window.classList.toggle('maximized');
+            });
+
+            // Click to focus
+            window.addEventListener('mousedown', () => {
+                bringToFront(window);
+            });
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (draggedWindow && !draggedWindow.classList.contains('maximized')) {
+                draggedWindow.style.left = (e.clientX - dragOffset.x) + 'px';
+                draggedWindow.style.top = (e.clientY - dragOffset.y) + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            draggedWindow = null;
+        });
+
+        function openApp(appName) {
+            const windowId = appName + '-window';
+            const window = document.getElementById(windowId);
+            
+            if (window) {
+                window.classList.add('active');
+                bringToFront(window);
+                updateTaskbar();
+            }
+        }
+
+        function bringToFront(window) {
+            window.style.zIndex = ++zIndexCounter;
+            activeWindow = window;
+        }
+
+        function updateTaskbar() {
+            const taskbarApps = document.getElementById('taskbar-apps');
+            taskbarApps.innerHTML = '';
+
+            document.querySelectorAll('.window.active').forEach(window => {
+                const title = window.querySelector('.window-title span:last-child').textContent;
+                const app = document.createElement('div');
+                app.className = 'taskbar-app';
+                app.textContent = title;
+                app.addEventListener('click', () => {
+                    if (window.style.display === 'none') {
+                        window.style.display = 'flex';
+                    }
+                    bringToFront(window);
+                });
+                taskbarApps.appendChild(app);
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}`;
+        }
+
+        // Calculator
+        let calcValue = '0';
+
+        function calcAppend(char) {
+            if (calcValue === '0') {
+                calcValue = char;
+            } else {
+                calcValue += char;
+            }
+            document.getElementById('calc-display').textContent = calcValue;
+        }
+
+        function calcClear() {
+            calcValue = '0';
+            document.getElementById('calc-display').textContent = calcValue;
+        }
+
+        function calcEquals() {
+            try {
+                calcValue = String(eval(calcValue));
+                document.getElementById('calc-display').textContent = calcValue;
+            } catch {
+                calcValue = 'Fehler';
+                document.getElementById('calc-display').textContent = calcValue;
+                setTimeout(() => {
+                    calcValue = '0';
+                    document.getElementById('calc-display').textContent = calcValue;
+                }, 1500);
+            }
+        }
+
+        // Notepad
+        function notepadNew() {
+            if (confirm('Aktuellen Text löschen?')) {
+                document.getElementById('notepad-text').value = '';
+            }
+        }
+
+        function notepadSave() {
+            const text = document.getElementById('notepad-text').value;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dokument.txt';
+            a.click();
+        }
+
+        function notepadClear() {
+            document.getElementById('notepad-text').value = '';
+        }
+
+        // Browser
+        function browserGo() {
+            const url = document.getElementById('browser-url').value;
+            document.getElementById('browser-content').innerHTML = `
+                <h2>Navigation zu: ${url}</h2>
+                <p style="margin-top: 16px;">Diese Seite existiert in der Demo nicht.</p>
+            `;
+        }
+
+        // Terminal
+        const terminalCommands = {
+            help: 'Verfügbare Befehle: help, clear, date, echo, ls, whoami, about',
+            clear: '',
+            date: new Date().toString(),
+            ls: 'Dokumente  Downloads  Bilder  Videos',
+            whoami: 'user',
+            about: 'CloudOS v1.0 - Ein modernes HTML-Betriebssystem'
+        };
+
+        function executeTerminalCommand(cmd) {
+            const output = document.getElementById('terminal-output');
+            const inputLine = document.createElement('div');
+            inputLine.className = 'terminal-line';
+            inputLine.textContent = `user@cloudos:~$ ${cmd}`;
+            output.appendChild(inputLine);
+
+            const parts = cmd.trim().split(' ');
+            const command = parts[0];
+
+            if (command === 'clear') {
+                output.innerHTML = '';
+                return;
+            }
+
+            if (command === 'echo') {
+                const resultLine = document.createElement('div');
+                resultLine.className = 'terminal-line';
+                resultLine.textContent = parts.slice(1).join(' ');
+                output.appendChild(resultLine);
+            } else if (terminalCommands[command]) {
+                const resultLine = document.createElement('div');
+                resultLine.className = 'terminal-line';
+                resultLine.textContent = terminalCommands[command];
+                output.appendChild(resultLine);
+            } else {
+                const errorLine = document.createElement('div');
+                errorLine.className = 'terminal-line';
+                errorLine.textContent = `Befehl nicht gefunden: ${command}`;
+                output.appendChild(errorLine);
+            }
+
+            const terminal = document.getElementById('terminal');
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    </script>
+</body>
+</html>
